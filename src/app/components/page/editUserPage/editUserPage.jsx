@@ -1,18 +1,17 @@
 import React, { useEffect, useState } from "react";
 import { useHistory, useParams } from "react-router-dom";
 import { validator } from "../../../utils/validator";
-import TextField from "../../common/form/textField";
 import api from "../../../api";
+import TextField from "../../common/form/textField";
 import SelectField from "../../common/form/selectField";
 import RadioField from "../../common/form/radioField";
 import MultiSelectField from "../../common/form/multiSelectField";
-// скопировала импорты из формы регистрации, удалила чекбокс и добавила useHistory, useParams
+import BackHistoryButton from "../../common/backButton";
 
 const EditUserPage = () => {
-    // прописала для всего стейты и добавила состояние загрузки страницы
-    const [pageIsLoading, setPageIsLoading] = useState(false);
     const { userId } = useParams();
     const history = useHistory();
+    const [isLoading, setIsLoading] = useState(false);
     const [data, setData] = useState({
         name: "",
         email: "",
@@ -20,10 +19,8 @@ const EditUserPage = () => {
         sex: "male",
         qualities: []
     });
-
-    // скопировала состояния и получение профессий и качеств юзера из registerForm
-    const [qualities, setQualities] = useState([]);
     const [professions, setProfession] = useState([]);
+    const [qualities, setQualities] = useState([]);
     const [errors, setErrors] = useState({});
     const getProfessionById = (id) => {
         for (const prof of professions) {
@@ -47,24 +44,37 @@ const EditUserPage = () => {
         }
         return qualitiesArray;
     };
-    // ____________________________________________________________________
-
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        const isValid = validate();
+        if (!isValid) return;
+        const { profession, qualities } = data;
+        api.users
+            .update(userId, {
+                ...data,
+                profession: getProfessionById(profession),
+                qualities: getQualities(qualities)
+            })
+            .then((data) => history.push(`/users/${data._id}`));
+        console.log({
+            ...data,
+            profession: getProfessionById(profession),
+            qualities: getQualities(qualities)
+        });
+    };
+    const transformData = (data) => {
+        return data.map((qual) => ({ label: qual.name, value: qual._id }));
+    };
     useEffect(() => {
-        // загружаем страницу
-        setPageIsLoading(true);
-        // запрашиваем нашего пользователя
+        setIsLoading(true);
         api.users.getById(userId).then(({ profession, qualities, ...data }) =>
             setData((prevState) => ({
                 ...prevState,
                 ...data,
-                profession: profession._id,
-                qualities: qualities.map((quality) => ({
-                    label: quality.name,
-                    value: quality._id
-                }))
+                qualities: transformData(qualities),
+                profession: profession._id
             }))
         );
-        // скопировала из registerForm
         api.professions.fetchAll().then((data) => {
             const professionsList = Object.keys(data).map((professionName) => ({
                 label: data[professionName].name,
@@ -81,21 +91,10 @@ const EditUserPage = () => {
             setQualities(qualitiesList);
         });
     }, []);
-
-    // после изменения данных (каждый раз) убираем загрузку страницы
     useEffect(() => {
-        if (data._id) setPageIsLoading(false);
+        if (data._id) setIsLoading(false);
     }, [data]);
 
-    // скопировала из registerForm
-    const handleChange = (target) => {
-        setData((prevState) => ({
-            ...prevState,
-            [target.name]: target.value
-        }));
-    };
-
-    // сделала по типу registerForm
     const validatorConfig = {
         email: {
             isRequired: {
@@ -111,45 +110,27 @@ const EditUserPage = () => {
             }
         }
     };
-
-    // скопировала из registerForm
     useEffect(() => {
         validate();
     }, [data]);
+    const handleChange = (target) => {
+        setData((prevState) => ({
+            ...prevState,
+            [target.name]: target.value
+        }));
+    };
     const validate = () => {
         const errors = validator(data, validatorConfig);
         setErrors(errors);
         return Object.keys(errors).length === 0;
     };
     const isValid = Object.keys(errors).length === 0;
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        const isValid = validate();
-        if (!isValid) return;
-        const { profession, qualities } = data;
-        // добавила асинхронное обновление данных
-        api.users
-            .update(userId, {
-                ...data,
-                profession: getProfessionById(profession),
-                qualities: getQualities(qualities)
-            })
-            // и переадресовала пользователя на обновленного юзера
-            .then((data) => history.push(`/users/${data._id}`));
-        console.log({
-            ...data,
-            profession: getProfessionById(profession),
-            qualities: getQualities(qualities)
-        });
-    };
-
     return (
-        // скопировала из registerForm и немного подкорректировала
         <div className="container mt-5">
+            <BackHistoryButton />
             <div className="row">
                 <div className="col-md-6 offset-md-3 shadow p-4">
-                    {!pageIsLoading && Object.keys(professions) ? (
+                    {!isLoading && Object.keys(professions).length > 0 ? (
                         <form onSubmit={handleSubmit}>
                             <TextField
                                 label="Имя"
@@ -201,8 +182,7 @@ const EditUserPage = () => {
                             </button>
                         </form>
                     ) : (
-                        // добавила сообщение о загрузке
-                        "Loading"
+                        "Loading..."
                     )}
                 </div>
             </div>

@@ -6,7 +6,6 @@ import Login from "./layouts/login";
 import Main from "./layouts/main";
 import NavBar from "./components/ui/navBar";
 
-// добавила опциональный edit
 function App() {
     return (
         <div>
